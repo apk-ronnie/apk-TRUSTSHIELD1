@@ -1,0 +1,33 @@
+# ==============================================================================
+# TrustShield AI - Render Deployment Blueprint
+# Deploy instantly to Render: https://render.com
+# ==============================================================================
+services:
+  - type: web
+    name: trustshield-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # Connect your Supabase project credentials in Render dashboard
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Google Gemini API key
+      - key: GEMINI_API_KEY
+        sync: false
+      # Frontend client origin on Vercel
+      - key: FRONTEND_URL
+        sync: false
