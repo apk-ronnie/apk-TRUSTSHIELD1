@@ -48,3 +48,4 @@ CREATE POLICY "Users can view own analyses"
 
 CREATE POLICY "Users can insert own analyses"
     ON public.analyses FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+

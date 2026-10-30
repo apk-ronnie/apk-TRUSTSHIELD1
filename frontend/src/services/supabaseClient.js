@@ -35,3 +35,4 @@ if (!isSupabaseClientConfigured) {
 }
 
 export default supabase;
+

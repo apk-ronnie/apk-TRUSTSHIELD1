@@ -31,3 +31,4 @@ services:
       # Frontend client origin on Vercel
       - key: FRONTEND_URL
         sync: false
+

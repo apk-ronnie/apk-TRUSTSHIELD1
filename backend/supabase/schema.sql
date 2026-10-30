@@ -101,3 +101,4 @@ VALUES (
     'security_officer'
 )
 ON CONFLICT (email) DO NOTHING;
+
