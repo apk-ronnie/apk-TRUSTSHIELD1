@@ -1,0 +1,27 @@
+{
+  "name": "trustshield-ai-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TrustShield AI - AI-powered Security, Privacy & Contextual PII Redaction Platform",
+  "scripts": {
+    "start": "concurrently \"npm run start --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "backend": "npm run dev --prefix backend",
+    "frontend": "npm run dev --prefix frontend",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "test": "npm test --prefix backend",
+    "build": "npm run build --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "ai",
+    "security",
+    "pii-redaction",
+    "phishing-detection",
+    "gemini"
+  ],
+  "author": "TrustShield AI Team",
+  "license": "MIT"
+}
