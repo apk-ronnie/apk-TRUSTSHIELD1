@@ -1,17 +1,15 @@
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const Analysis = require('../models/Analysis');
+const crypto = require('crypto');
 const supabaseStorageService = require('./supabaseStorageService');
 const { isConfigured: isSupabaseConfigured } = require('../config/supabase');
 
-// In-memory fallback database for offline development or when cloud keys are not yet configured
+// In-memory fallback store for offline development when Supabase cloud is unreachable
 const memoryStore = {
   users: [],
   analyses: []
 };
 
-// Seed default demo user in memory store for instant testing
+// Seed default demo user in memory store for instant local testing
 (async () => {
   const salt = await bcrypt.genSalt(10);
   const demoHash = await bcrypt.hash('TrustShield2026!', salt);
@@ -26,44 +24,48 @@ const memoryStore = {
   });
 })();
 
-const isMongoConnected = () => mongoose.connection.readyState === 1;
+const isNetworkError = (err) =>
+  err &&
+  (err.message?.includes('fetch failed') ||
+   err.message?.includes('ENOTFOUND') ||
+   err.message?.includes('ECONNREFUSED') ||
+   err.details?.includes('ENOTFOUND'));
 
 const storageService = {
   getActiveStorageType() {
     if (supabaseStorageService.isAvailable()) return 'Supabase PostgreSQL';
-    if (isMongoConnected()) return 'MongoDB';
     return 'In-Memory Store (Dev Fallback)';
   },
 
   async findUserByEmail(email) {
     const normalized = email.toLowerCase().trim();
 
-    // 1. Try Supabase
+    // 1. Primary Cloud Database: Supabase
     if (supabaseStorageService.isAvailable()) {
-      return await supabaseStorageService.findUserByEmail(normalized);
+      try {
+        return await supabaseStorageService.findUserByEmail(normalized);
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        console.warn('[Storage] Supabase network unavailable. Falling back to local memory store.');
+      }
     }
 
-    // 2. Try MongoDB
-    if (isMongoConnected()) {
-      return await User.findOne({ email: normalized });
-    }
-
-    // 3. Fallback Memory Store
+    // 2. Dev Fallback: Memory Store
     return memoryStore.users.find((u) => u.email.toLowerCase() === normalized) || null;
   },
 
   async findUserById(id) {
-    // 1. Try Supabase
+    // 1. Primary Cloud Database: Supabase
     if (supabaseStorageService.isAvailable()) {
-      return await supabaseStorageService.findUserById(id);
+      try {
+        return await supabaseStorageService.findUserById(id);
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        console.warn('[Storage] Supabase network unavailable. Falling back to local memory store.');
+      }
     }
 
-    // 2. Try MongoDB
-    if (isMongoConnected()) {
-      return await User.findById(id).select('-passwordHash');
-    }
-
-    // 3. Fallback Memory Store
+    // 2. Dev Fallback: Memory Store
     const user = memoryStore.users.find((u) => (u._id || u.id).toString() === id.toString());
     if (!user) return null;
     const { passwordHash, ...safeUser } = user;
@@ -73,20 +75,21 @@ const storageService = {
   async createUser({ name, email, passwordHash, role = 'user' }) {
     const normalized = email.toLowerCase().trim();
 
-    // 1. Try Supabase
+    // 1. Primary Cloud Database: Supabase
     if (supabaseStorageService.isAvailable()) {
-      return await supabaseStorageService.createUser({ name, email: normalized, passwordHash, role });
+      try {
+        return await supabaseStorageService.createUser({ name, email: normalized, passwordHash, role });
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        console.warn('[Storage] Supabase network unavailable. Falling back to local memory store.');
+      }
     }
 
-    // 2. Try MongoDB
-    if (isMongoConnected()) {
-      return await User.create({ name, email: normalized, passwordHash, role });
-    }
-
-    // 3. Fallback Memory Store
+    // 2. Dev Fallback: Memory Store
+    const newId = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
     const newUser = {
-      _id: (Math.random().toString(36).substring(2) + Date.now().toString(36)),
-      id: (Math.random().toString(36).substring(2) + Date.now().toString(36)),
+      _id: newId,
+      id: newId,
       name,
       email: normalized,
       passwordHash,
@@ -106,34 +109,28 @@ const storageService = {
     piiEntitiesCount,
     processingTimeMs
   }) {
-    // 1. Try Supabase
+    // 1. Primary Cloud Database: Supabase
     if (supabaseStorageService.isAvailable()) {
-      return await supabaseStorageService.createAnalysis({
-        userId,
-        originalLength,
-        threatScore,
-        threatType,
-        piiEntitiesCount,
-        processingTimeMs
-      });
+      try {
+        return await supabaseStorageService.createAnalysis({
+          userId,
+          originalLength,
+          threatScore,
+          threatType,
+          piiEntitiesCount,
+          processingTimeMs
+        });
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        console.warn('[Storage] Supabase network unavailable. Falling back to local memory store.');
+      }
     }
 
-    // 2. Try MongoDB
-    if (isMongoConnected()) {
-      return await Analysis.create({
-        userId,
-        originalLength,
-        threatScore,
-        threatType,
-        piiEntitiesCount,
-        processingTimeMs
-      });
-    }
-
-    // 3. Fallback Memory Store
+    // 2. Dev Fallback: Memory Store
+    const newId = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
     const record = {
-      _id: (Math.random().toString(36).substring(2) + Date.now().toString(36)),
-      id: (Math.random().toString(36).substring(2) + Date.now().toString(36)),
+      _id: newId,
+      id: newId,
       userId: userId.toString(),
       originalLength,
       threatScore,
@@ -148,38 +145,34 @@ const storageService = {
   },
 
   async getUserScans(userId) {
-    // 1. Try Supabase
+    // 1. Primary Cloud Database: Supabase
     if (supabaseStorageService.isAvailable()) {
-      return await supabaseStorageService.getUserScans(userId);
+      try {
+        return await supabaseStorageService.getUserScans(userId);
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        console.warn('[Storage] Supabase network unavailable. Falling back to local memory store.');
+      }
     }
 
-    // 2. Try MongoDB
-    if (isMongoConnected()) {
-      return await Analysis.find({ userId }).sort({ createdAt: 1 }).lean();
-    }
-
-    // 3. Fallback Memory Store
+    // 2. Dev Fallback: Memory Store
     return memoryStore.analyses
       .filter((a) => (a.userId || '').toString() === userId.toString())
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   },
 
   async getUserHistory(userId, skip = 0, limit = 20) {
-    // 1. Try Supabase
+    // 1. Primary Cloud Database: Supabase
     if (supabaseStorageService.isAvailable()) {
-      return await supabaseStorageService.getUserHistory(userId, skip, limit);
+      try {
+        return await supabaseStorageService.getUserHistory(userId, skip, limit);
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+        console.warn('[Storage] Supabase network unavailable. Falling back to local memory store.');
+      }
     }
 
-    // 2. Try MongoDB
-    if (isMongoConnected()) {
-      const [items, total] = await Promise.all([
-        Analysis.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        Analysis.countDocuments({ userId })
-      ]);
-      return { items, total };
-    }
-
-    // 3. Fallback Memory Store
+    // 2. Dev Fallback: Memory Store
     const userScans = memoryStore.analyses
       .filter((a) => (a.userId || '').toString() === userId.toString())
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

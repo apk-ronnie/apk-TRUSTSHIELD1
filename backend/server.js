@@ -7,7 +7,6 @@ const path = require('path');
 dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, '.env.supabase') });
 
-const connectDB = require('./config/db');
 const { isConfigured: isSupabaseConfigured, supabaseUrl } = require('./config/supabase');
 const storageService = require('./services/storageService');
 const authRoutes = require('./routes/authRoutes');
@@ -16,9 +15,6 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Connect to MongoDB if MONGODB_URI is provided
-connectDB();
 
 // CORS configuration (Permits requests from Vercel deployments, localhost, and custom domains)
 const allowedOrigins = [
@@ -33,7 +29,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. mobile apps, curl, Postman, Render healthchecks)
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      if (!origin || allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
         return callback(null, true);
       }
       return callback(null, true); // Permissive in dev/staging
@@ -58,7 +54,7 @@ app.get('/api/health', (req, res) => {
     storageEngine: storageService.getActiveStorageType(),
     supabase: {
       connected: isSupabaseConfigured,
-      url: isSupabaseConfigured ? supabaseUrl : 'Not configured (using fallback)'
+      url: isSupabaseConfigured ? supabaseUrl : 'Template mode (using local dev fallback)'
     },
     aiEngine: process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here'
       ? 'Google Gemini API (Active)'
