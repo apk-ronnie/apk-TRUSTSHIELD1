@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -51,7 +50,7 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    // Attach basic user payload from token
+    // Attach basic user payload from verified token
     req.user = {
       id: decoded.id,
       email: decoded.email,
@@ -66,4 +65,3 @@ const authMiddleware = async (req, res, next) => {
 };
 
 module.exports = authMiddleware;
-
